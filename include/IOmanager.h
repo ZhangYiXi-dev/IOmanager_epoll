@@ -113,6 +113,10 @@ namespace zyx
          * @brief 返回当前的IOManager
          */
         static IOManager* GetThis();
+        /**
+         * @brief 返回当前被触发的fd
+         */
+        static int Get_now_fd();
     protected:
         void tickle() override;
         bool stopping() override;

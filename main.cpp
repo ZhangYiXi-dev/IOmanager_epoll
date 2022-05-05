@@ -14,46 +14,45 @@
 #include "scheduler.h"
 #include "IOmanager.h"
 #include "mutex.h"
+#include "Socket.h"
 
 //时间 线程id-线程名称 协程id  自定义信息
-zyx::Logger::ptr log_main = (new zyx::LoggerManager(zyx::LogLevel::Level::DEBUG, true, false))->Getlogger(); 
+zyx::Logger::ptr log_main = (new zyx::LoggerManager(zyx::LogLevel::Level::DEBUG, false, true))->Getlogger(); 
 int pfd[2];
-
-zyx::Mutex mutex;
-
-void test_read()
+std::string msg="hello";
+int sum=0;
+void rd_cb(void * param)
 {
-    char b[1024];
-    mutex.lock();
-    int len=read(pfd[0],b,sizeof(b));
-    printf("%s\n",b);
-    ZYX_LOG_DEBUG(log_main,"read");
-    mutex.unlock();    
+    int* fd=(int*)param;
+    char buf[1024];
+    int flag=read(*fd,buf,sizeof(buf)); 
+    if(flag==-1)
+    {
+        return;
+    }
+    if(flag==0)
+    {
+        //epoll_ctl (m_epfd,EPOLL_CTL_DEL,*fd,&event);
+        //close(*fd);
+        return;
+    }
+    write(*fd,msg.c_str(),msg.size());
+    std::string str;
+    str.append(buf);
+    ZYX_LOG_DEBUG(log_main,std::to_string(*fd)+" "+str);
 }
-void test_write()
+void wr_cb(void * param)
 {
     ZYX_LOG_DEBUG(log_main,"write");
 }
+
 int main()
 {
-  
-  pipe(pfd);
-  zyx::IOManager::ptr io(new zyx::IOManager(10));
-  io->setThis();
-  io->addEvent(pfd[0], zyx::IOManager::Event::READ, test_read);
-  io->addEvent(pfd[1], zyx::IOManager::Event::WRITE, test_write);
-  
-  char buf[]="aaaa";
-  for(int i=0;i<100;i++)
-  {
-     mutex.lock();
-    write(pfd[1], buf, sizeof(buf));
-    mutex.unlock();
-    usleep(1000);
-  }
- 
-  //sleep(1);
-  //close(pfd[0]);
-  //io->stop();
+    zyx::Socket::ptr p(new zyx::Socket(12160,50,rd_cb,wr_cb));
+    p->Setthis();
+    while(1)
+    {
 
+    }
+            
 }

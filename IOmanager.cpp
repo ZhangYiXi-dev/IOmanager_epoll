@@ -2,6 +2,11 @@
 
 namespace zyx
 {
+    static thread_local int now_fd=-1;//当前被触发的fd
+    int IOManager::Get_now_fd()
+    {
+        return now_fd;
+    }
     void IOManager::FdContext::triggerEvent(IOManager::Event event) 
     {
         //SYLAR_LOG_INFO(g_logger) << "fd=" << fd
@@ -116,6 +121,7 @@ namespace zyx
         int rt = epoll_ctl(m_epfd, op, fd, &epevent);
         if(rt)
         {
+            printf("epoll_ctl error %d:%s\r\n",errno,strerror(errno));
             ZYX_ASSERT(false,"epoll_ctl error")
             return -1;
         }
@@ -164,7 +170,7 @@ namespace zyx
         epoll_event* events = new epoll_event[MAX_EVNETS]();
         int rt=0;
         m_rw_mutex.wrlock();
-        rt = epoll_wait(m_epfd, events, MAX_EVNETS, 20);
+        rt = epoll_wait(m_epfd, events, MAX_EVNETS, 1);
         m_rw_mutex.unlock();
    
         for(int i = 0; i < rt; ++i) 
@@ -181,10 +187,15 @@ namespace zyx
            // std::cout<<"real event "<<rt<<std::endl;
             //否则为真正的事件
             FdContext* fd_ctx = (FdContext*)event.data.ptr;
+            now_fd=fd_ctx->fd;
             fd_ctx->mutex.lock();
             if(event.events & (EPOLLERR | EPOLLHUP)) 
             {
                 event.events |= (EPOLLIN | EPOLLOUT) & fd_ctx->events;
+            }
+            if(event.events &EPOLLRDHUP)
+            {
+                continue;
             }
             int real_events = NONE;
             if(event.events & EPOLLIN) 
@@ -197,7 +208,7 @@ namespace zyx
             }
             if((fd_ctx->events & real_events) == NONE) 
             {
-               // std::cout<<"none "<<rt<<std::endl;
+                //std::cout<<"none "<<rt<<std::endl;
                 continue;
             }
             
