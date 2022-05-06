@@ -47,7 +47,7 @@ namespace zyx
     IOManager::IOManager(size_t threads, bool use_caller, const std::string& name) 
     :Scheduler(threads,use_caller,name)    //子类给父类构造函数传递参数
     {
-        m_epfd = epoll_create(5000);//创建epoll监听红黑树
+        m_epfd = epoll_create(50000);//创建epoll监听红黑树
         ZYX_ASSERT(m_epfd > 0,"epoll create erro");
         
         int rt = pipe(m_tickleFds);//创建一个管道用来唤醒线程
@@ -96,6 +96,12 @@ namespace zyx
             }
         }
     }
+    void IOManager::FdContext::resetContext(EventContext& ctx) 
+    {
+        ctx.scheduler = nullptr;
+        ctx.fiber.reset();
+        ctx.cb = nullptr;
+    }
     //添加事件
     int IOManager::addEvent(int fd, Event event, std::function<void()> cb)
     {
@@ -114,6 +120,7 @@ namespace zyx
             fd_ctx = m_fdContexts[fd];
             m_rw_mutex.unlock();
         }
+        fd_ctx->mutex.lock();
         int op = fd_ctx->events ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
         epoll_event epevent;
         epevent.events = EPOLLET | fd_ctx->events | event;
@@ -145,8 +152,44 @@ namespace zyx
             //ZYX_ASSERT(event_ctx.fiber->getState() == Fiber::EXEC
             //           ," ");
         }
+        fd_ctx->mutex.unlock();
         return 0;
     }
+    bool IOManager::delEvent(int fd, Event event)
+    {
+        m_rw_mutex.rdlock();
+        if((int)m_fdContexts.size() <= fd) 
+        {
+            return false;
+        }
+        FdContext* fd_ctx = m_fdContexts[fd];
+        m_rw_mutex.unlock();
+        fd_ctx->mutex.lock();
+        if(fd_ctx->events==NONE)
+        {
+            return false;
+        }
+        Event new_events = (Event)(fd_ctx->events & ~event);
+        int op = new_events ? EPOLL_CTL_MOD : EPOLL_CTL_DEL;
+        epoll_event epevent;
+        epevent.events = EPOLLET | new_events;
+        epevent.data.ptr = fd_ctx;
+
+        int rt = epoll_ctl(m_epfd, op, fd, &epevent);
+        if(rt) 
+        {
+            std::cout<<"epoll_ctl error "<<errno<<" "<<strerror(errno)<<std::endl;
+            return false;
+        }
+
+        --m_pendingEventCount;
+        fd_ctx->events = new_events;
+        FdContext::EventContext& event_ctx = fd_ctx->getContext(event);
+        fd_ctx->resetContext(event_ctx);
+        fd_ctx->mutex.unlock();
+        return true;
+    }
+   
     //通知空闲线程来处理
     void IOManager::tickle() 
     {

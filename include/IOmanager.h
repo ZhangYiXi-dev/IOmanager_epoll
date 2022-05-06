@@ -53,6 +53,11 @@ namespace zyx
              * @param[in] event 事件类型
              */
             void triggerEvent(Event event);
+            /**
+             * @brief 重置事件上下文
+             * @param[in, out] ctx 待重置的上下文类
+             */
+            void resetContext(EventContext& ctx);
             /// 读事件上下文
             EventContext read;
             /// 写事件上下文

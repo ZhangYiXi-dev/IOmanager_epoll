@@ -42,11 +42,14 @@ namespace zyx
                    bool use_caller=false, const std::string& name="");
             ~Socket();
             void Setthis();
+            static Socket::ptr GetThis();
+            static bool delEvent(int fd,IOManager::Event event);
+            static bool Revmsg(int fd,char *buf,int size);
         private:
             static void s_rd_cb();
             static void s_wr_cb();
             static void Accept();
-            static Socket::ptr GetThis();
+   
         public:
            // void addEvent(Socket_fd fd);
         private:

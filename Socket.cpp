@@ -99,7 +99,25 @@ namespace zyx
         now_Socket->m_wr_cb((void*)n_fd);
         delete n_fd;
     }
-
+    bool Socket::delEvent(int fd,IOManager::Event event)
+    {
+        return now_Socket->m_io->delEvent(fd,event);
+    }
+    bool Socket::Revmsg(int fd,char *buf,int size)
+    {
+        int flag=read(fd,buf,1024); 
+        if(flag==-1)
+        {
+            return false;
+        }
+        if(flag==0)
+        {
+            zyx::Socket::delEvent(fd,zyx::IOManager::Event::READ);
+            close(fd);
+            return false;
+        }
+        return true;
+    }
     // Socket_fd::Socket_fd(int fd,IOManager::Event type,std::function<void()> rd_cb,std::function<void()> wr_cb)
     // {
     //     m_fd=fd;

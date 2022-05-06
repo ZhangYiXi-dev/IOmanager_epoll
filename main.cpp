@@ -25,15 +25,9 @@ void rd_cb(void * param)
 {
     int* fd=(int*)param;
     char buf[1024];
-    int flag=read(*fd,buf,sizeof(buf)); 
-    if(flag==-1)
+    bool flag=zyx::Socket::Revmsg(*fd,buf,sizeof(buf));
+    if(!flag)
     {
-        return;
-    }
-    if(flag==0)
-    {
-        //epoll_ctl (m_epfd,EPOLL_CTL_DEL,*fd,&event);
-        //close(*fd);
         return;
     }
     write(*fd,msg.c_str(),msg.size());
