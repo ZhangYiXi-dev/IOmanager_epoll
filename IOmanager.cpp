@@ -2,11 +2,6 @@
 
 namespace zyx
 {
-    static thread_local int now_fd=-1;//当前被触发的fd
-    int IOManager::Get_now_fd()
-    {
-        return now_fd;
-    }
     void IOManager::FdContext::triggerEvent(IOManager::Event event) 
     {
         //SYLAR_LOG_INFO(g_logger) << "fd=" << fd
@@ -20,15 +15,25 @@ namespace zyx
         EventContext& ctx = getContext(event);
         if(ctx.cb) 
         {
-            //std::cout<<"trr event "<<std::endl;
             ctx.scheduler->schedule(ctx.cb);
-            //std::cout<<"trr end"<<std::endl;
         } 
         else 
         {
             ctx.scheduler->schedule(&ctx.fiber);
         }
-        //ctx.scheduler = nullptr;
+        return;
+    }
+    void IOManager::FdContext::triggerEvent(IOManager::Event event,int fd) 
+    {
+        EventContext& ctx = getContext(event);
+        if(ctx.cb) 
+        {
+            ctx.scheduler->schedule(ctx.cb,fd,-1);
+        } 
+        else 
+        {
+            ctx.scheduler->schedule(&ctx.fiber);
+        }
         return;
     }
     IOManager::FdContext::EventContext& IOManager::FdContext::getContext(IOManager::Event event) 
@@ -125,6 +130,7 @@ namespace zyx
         epoll_event epevent;
         epevent.events = EPOLLET | fd_ctx->events | event;
         epevent.data.ptr = fd_ctx;
+        
         int rt = epoll_ctl(m_epfd, op, fd, &epevent);
         if(rt)
         {
@@ -174,7 +180,6 @@ namespace zyx
         epoll_event epevent;
         epevent.events = EPOLLET | new_events;
         epevent.data.ptr = fd_ctx;
-
         int rt = epoll_ctl(m_epfd, op, fd, &epevent);
         if(rt) 
         {
@@ -200,6 +205,14 @@ namespace zyx
        // int rt = write(m_tickleFds[1], "T", 1);
         //ZYX_ASSERT(rt == 1,"write error");
     }
+    bool IOManager::stopping(uint64_t& timeout) 
+    {
+        timeout = getNextTimer();
+        return timeout == ~0ull
+            && m_pendingEventCount == 0
+            && Scheduler::stopping();
+
+    }
     bool IOManager::stopping() 
     {
         // uint64_t timeout = 0;
@@ -212,10 +225,36 @@ namespace zyx
         //接收事件被激活的epoll事件
         epoll_event* events = new epoll_event[MAX_EVNETS]();
         int rt=0;
-        m_rw_mutex.wrlock();
-        rt = epoll_wait(m_epfd, events, MAX_EVNETS, 1);
-        m_rw_mutex.unlock();
-   
+        uint64_t next_timeout = 0;
+        stopping(next_timeout);
+        do {
+            static const int MAX_TIMEOUT = 100;
+            if(next_timeout != ~0ull) 
+            {
+                next_timeout = (int)next_timeout > MAX_TIMEOUT
+                                ? MAX_TIMEOUT : next_timeout;
+            } 
+            else 
+            {
+                next_timeout = MAX_TIMEOUT;
+            }
+            rt = epoll_wait(m_epfd, events, MAX_EVNETS, (int)next_timeout);
+            if(rt < 0 && errno == EINTR) 
+            {
+            } 
+            else 
+            {
+                break;
+            }
+        } while(true);
+        //rt = epoll_wait(m_epfd, events, MAX_EVNETS, 1);
+        std::vector<std::function<void()> > cbs;
+        listExpiredCb(cbs);
+        if(!cbs.empty()) 
+        {
+            schedule(cbs.begin(), cbs.end());
+            cbs.clear();
+        }
         for(int i = 0; i < rt; ++i) 
         {
             //std::cout<<"having event "<<rt<<std::endl;
@@ -230,7 +269,6 @@ namespace zyx
            // std::cout<<"real event "<<rt<<std::endl;
             //否则为真正的事件
             FdContext* fd_ctx = (FdContext*)event.data.ptr;
-            now_fd=fd_ctx->fd;
             fd_ctx->mutex.lock();
             if(event.events & (EPOLLERR | EPOLLHUP)) 
             {
@@ -258,16 +296,20 @@ namespace zyx
             if(real_events & READ) 
             {
                 //std::cout<<"read event "<<rt<<std::endl;
-                fd_ctx->triggerEvent(READ);
+                fd_ctx->triggerEvent(READ,fd_ctx->fd);
                 --m_pendingEventCount;
             }
             if(real_events & WRITE) 
             {
                 //std::cout<<"write event "<<rt<<std::endl;
-                fd_ctx->triggerEvent(WRITE);
+                fd_ctx->triggerEvent(WRITE,fd_ctx->fd);
                 --m_pendingEventCount;
             }
             fd_ctx->mutex.unlock();
         }
+    }
+    void IOManager::onTimerInsertedAtFront() 
+    {
+        tickle();
     }
 }

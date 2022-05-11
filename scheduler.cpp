@@ -5,6 +5,7 @@ namespace zyx
 {
     static thread_local Scheduler* t_scheduler = nullptr; //当前的scheduler
     static thread_local Fiber* t_scheduler_fiber = nullptr;//当前的协程
+    static thread_local int now_fd=-1;
     Scheduler::Scheduler(int thread_size,bool use_caller,std::string name)
     {
         ZYX_ASSERT(thread_size>0,"thread_size<0");
@@ -64,7 +65,10 @@ namespace zyx
         }
         m_mutex.unlock(); 
     }
-
+    int Scheduler::Getnowfd()
+    {
+        return now_fd;
+    }
     void Scheduler::run()
     {
         setThis();
@@ -142,6 +146,7 @@ namespace zyx
                 {
                     cb_fiber.reset(new Fiber(ft.cb));
                 }
+                now_fd=ft.fd;
                 ft.reset();
                 //执行协程
                 cb_fiber->swapIn();

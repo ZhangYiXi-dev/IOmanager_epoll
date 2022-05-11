@@ -1,6 +1,7 @@
 #ifndef IOMANAGER_H
 #define IOMANAGER_H
 #include "scheduler.h"
+#include "timer.h"
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <cstring>
@@ -8,7 +9,7 @@
 
 namespace zyx
 {
-    class IOManager : public Scheduler
+    class IOManager : public Scheduler, public TimerManager
     {
     public:
         typedef std::shared_ptr<IOManager> ptr;
@@ -53,6 +54,7 @@ namespace zyx
              * @param[in] event 事件类型
              */
             void triggerEvent(Event event);
+            void triggerEvent(IOManager::Event event,int fd); 
             /**
              * @brief 重置事件上下文
              * @param[in, out] ctx 待重置的上下文类
@@ -118,19 +120,23 @@ namespace zyx
          * @brief 返回当前的IOManager
          */
         static IOManager* GetThis();
-        /**
-         * @brief 返回当前被触发的fd
-         */
-        static int Get_now_fd();
+       
     protected:
         void tickle() override;
         bool stopping() override;
         void idle() override;
+         /**
+         * @brief 判断是否可以停止
+         * @param[out] timeout 最近要出发的定时器事件间隔
+         * @return 返回是否可以停止
+         */
+        bool stopping(uint64_t& timeout);
         /**
          * @brief 重置socket句柄上下文的容器大小
          * @param[in] size 容量大小
          */
         void contextResize(size_t size);
+        void onTimerInsertedAtFront() override;
     private:
         /// epoll 文件句柄
         int m_epfd = 0;

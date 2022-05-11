@@ -52,19 +52,7 @@ namespace zyx
     {
         return now_Socket;
     }
-    // void Socket::addEvent(Socket_fd s_fd)
-    // {
-    //     IOManager::Event event=s_fd.GetType();
-    //     int fd=s_fd.Getfd();
-    //     if(event&IOManager::Event::READ)
-    //     {
-    //         m_io->addEvent(fd,event,s_fd.m_rd_cb);
-    //     }
-    //     if(event&IOManager::Event::WRITE)
-    //     {
-    //         m_io->addEvent(fd,event,s_fd.m_wr_cb);
-    //     }
-    // }
+
     void Socket::Setthis()
     {
         now_Socket=shared_from_this();
@@ -88,14 +76,14 @@ namespace zyx
     void Socket::s_rd_cb()
     {
         int *n_fd=new int;
-        *n_fd=IOManager::Get_now_fd();
+        *n_fd=Scheduler::Getnowfd();
         now_Socket->m_rd_cb((void*)n_fd);
         delete n_fd;
     }
     void Socket::s_wr_cb()
     {
         int *n_fd=new int;
-        *n_fd=IOManager::Get_now_fd();
+        *n_fd=Scheduler::Getnowfd();
         now_Socket->m_wr_cb((void*)n_fd);
         delete n_fd;
     }

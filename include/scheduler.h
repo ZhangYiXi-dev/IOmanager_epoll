@@ -28,6 +28,10 @@ namespace zyx
          */
         static Fiber* GetMainFiber();
         /**
+         * @brief 返回当前被触发的fd
+         */
+        static int Getnowfd();
+        /**
         * @brief 设置当前的协程调度器
         */
         void setThis();
@@ -62,6 +66,44 @@ namespace zyx
                 tickle();
             }
         }
+        template<class FiberOrCb>
+        void schedule(FiberOrCb fc, int fd,int thread = -1) 
+        {
+            bool need_tickle = false;
+            {
+                m_mutex.lock();
+                need_tickle = scheduleNoLock(fc, fd,thread);
+                m_mutex.unlock();
+            }
+
+            if(need_tickle) 
+            {
+                tickle();
+            }
+        }
+         /**
+         * @brief 批量调度协程
+         * @param[in] begin 协程数组的开始
+         * @param[in] end 协程数组的结束
+         */
+        template<class InputIterator>
+        void schedule(InputIterator begin, InputIterator end) 
+        {
+            bool need_tickle = false;
+            {
+                m_mutex.lock();
+                while(begin != end) 
+                {
+                    need_tickle = scheduleNoLock(&*begin, -1) || need_tickle;
+                    ++begin;
+                }
+                m_mutex.unlock();
+            }
+            if(need_tickle) 
+            {
+                tickle();
+            }
+        }
     private:
            /**
          * @brief 协程/函数/线程组
@@ -73,6 +115,8 @@ namespace zyx
             std::function<void()> cb;
             /// 线程id
             int thread;
+            ///触发的文件描述符
+            int fd=0;
 
         /**
          * @brief 构造函数
@@ -113,7 +157,9 @@ namespace zyx
             :thread(thr) {
             cb.swap(*f);
         }
-
+        FiberAndThread(std::function<void()> f, int fd,int thr)
+            :cb(f), thread(thr),fd(fd) {
+        }
         /**
          * @brief 无参构造函数
          */
@@ -136,6 +182,17 @@ namespace zyx
         bool need_tickle = m_fibers.empty();
         //std::cout<<"schedunolock "<<std::endl;
         FiberAndThread ft(fc, thread);
+        if(ft.fiber || ft.cb) {
+            m_fibers.push_back(ft);
+        }
+        return need_tickle;
+    }
+    template<class FiberOrCb>
+    bool scheduleNoLock(FiberOrCb fc, int fd,int thread) 
+    {
+        bool need_tickle = m_fibers.empty();
+        //std::cout<<"schedunolock "<<std::endl;
+        FiberAndThread ft(fc, fd,thread);
         if(ft.fiber || ft.cb) {
             m_fibers.push_back(ft);
         }
