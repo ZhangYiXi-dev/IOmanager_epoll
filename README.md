@@ -1,6 +1,6 @@
 # IOmanager_epoll_socket
 扩展协程调度器，实现一个io的调度器，封装epoll，实现一个socket通信
-
+其中的定时器是通过epoll实现的
 ```cpp
 问题一：
 协程的回调是无参数的，如何知道是哪个文件描述符触发的事件？
