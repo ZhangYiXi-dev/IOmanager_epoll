@@ -152,7 +152,7 @@ namespace zyx
     void Fiber::YieldToHold()
     {
         Fiber::ptr cur = GetThis();
-        ZYX_ASSERT(cur->m_state == EXEC,"YieldToReady error");
+        ZYX_ASSERT(cur->m_state == EXEC,"YieldToHold error");
         cur->m_state = HOLD;
         cur->swapOut();
     }

@@ -9,6 +9,7 @@
 #include "common.h"
 #include "zyx_thread.h"
 #include "fiber.h"
+#include "hook.h"
 
 namespace zyx
 {

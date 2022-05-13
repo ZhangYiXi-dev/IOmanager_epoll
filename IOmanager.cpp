@@ -202,7 +202,7 @@ namespace zyx
         // {
         //     return;
         // }
-       // int rt = write(m_tickleFds[1], "T", 1);
+        int rt = write(m_tickleFds[1], "T", 1);
         //ZYX_ASSERT(rt == 1,"write error");
     }
     bool IOManager::stopping(uint64_t& timeout) 
@@ -247,7 +247,6 @@ namespace zyx
                 break;
             }
         } while(true);
-        //rt = epoll_wait(m_epfd, events, MAX_EVNETS, 1);
         std::vector<std::function<void()> > cbs;
         listExpiredCb(cbs);
         if(!cbs.empty()) 
@@ -307,6 +306,10 @@ namespace zyx
             }
             fd_ctx->mutex.unlock();
         }
+    }
+    IOManager* IOManager::GetThis() 
+    {
+        return dynamic_cast<IOManager*>(Scheduler::GetThis());
     }
     void IOManager::onTimerInsertedAtFront() 
     {

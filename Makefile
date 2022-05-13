@@ -1,2 +1,2 @@
 fiber:main.cpp common.cpp
-	g++ -rdynamic -g main.cpp mutex.cpp common.cpp fiber.cpp log.cpp zyx_thread.cpp scheduler.cpp IOmanager.cpp Socket.cpp timer.cpp -I ./include -lpthread -o timer 
+	g++ -rdynamic -g test_hook.cpp mutex.cpp common.cpp fiber.cpp log.cpp zyx_thread.cpp scheduler.cpp IOmanager.cpp Socket.cpp timer.cpp hook.cpp -I ./include -ldl -lpthread -o timer 

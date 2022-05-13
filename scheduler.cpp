@@ -72,6 +72,7 @@ namespace zyx
     void Scheduler::run()
     {
         setThis();
+        set_hook_enable(true);
         if(zyx::GetThreadId() != m_rootThread) 
         {
             //getthis可以在没有协程被创建时，创建一个主协程
@@ -100,8 +101,8 @@ namespace zyx
                     continue;
                 }
                 ZYX_ASSERT(it->fiber|| it->cb,"FIBER no VALUE");
-                //如果有fiber信息，但是该协程处于exec或者hold状态，则跳过
-                if(it->fiber && (it->fiber->getState() == Fiber::EXEC||it->fiber->getState() == Fiber::HOLD))
+                //如果有fiber信息，但是该协程处于exec状态，则跳过
+                if(it->fiber && it->fiber->getState() == Fiber::EXEC)
                 {
                     ++it;
                     continue;
@@ -131,7 +132,6 @@ namespace zyx
                         && ft.fiber->getState() != Fiber::EXCEPT) 
                 {
                     ft.fiber->m_state = Fiber::HOLD;
-                    schedule(ft.fiber); //重新加入队列
                 }
                 ft.reset();
             }
